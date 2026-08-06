@@ -1,0 +1,27 @@
+#import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
+#import <objc/runtime.h>
+
+static IMP gOriginalSetText = NULL;
+
+// 拦截并替换 UILabel 文字
+static void CustomSetText(UILabel *self, SEL _cmd, NSString *text) {
+    if (text && [text isKindOfClass:[NSString class]]) {
+        // 判断原文字是否包含目标字符
+        if ([text containsString:@"🄷🅆🅅🄸🄿"] || [text containsString:@"HWVIP"]) {
+            text = @"HOME";
+        }
+    }
+    // 调用原始的 setText 方法
+    ((void(*)(id, SEL, NSString *))gOriginalSetText)(self, _cmd, text);
+}
+
+// 动态库加载入口
+__attribute__((constructor)) static void entry() {
+    Class class = [UILabel class];
+    SEL selector = @selector(setText:);
+    Method method = class_getInstanceMethod(class, selector);
+    if (method) {
+        gOriginalSetText = method_setImplementation(method, (IMP)CustomSetText);
+    }
+}
