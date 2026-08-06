@@ -7,12 +7,12 @@ static IMP gOriginalSetText = NULL;
 // 拦截并替换 UILabel 文字
 static void CustomSetText(UILabel *self, SEL _cmd, NSString *text) {
     if (text && [text isKindOfClass:[NSString class]]) {
-        // 判断原文字是否包含目标字符
-        if ([text containsString:@"🄷🅆🅅🄸🄿"] || [text containsString:@"HWVIP"]) {
-            text = @"HOME";
+        // \U0001F137\U0001F146\U0001F145\U0001F138\U0001F13F 对应 🄷🅆🅅🄸🄿
+        if ([text containsString:@"\U0001F137\U0001F146\U0001F145\U0001F138\U0001F13F"] || [text containsString:@"HWVIP"]) {
+            // \u9996\u9875 对应 首页
+            text = @"\u9996\u9875";
         }
     }
-    // 调用原始的 setText 方法
     ((void(*)(id, SEL, NSString *))gOriginalSetText)(self, _cmd, text);
 }
 
