@@ -4,101 +4,81 @@
 
 static IMP gOriginalSetText = NULL;
 static IMP gOriginalSetAttributedText = NULL;
-static IMP gOriginalUILabelLayout = NULL;
 static IMP gOriginalSetTitle = NULL;
-static IMP gOriginalUIButtonLayout = NULL;
+static IMP gOriginalTVSetText = NULL;
 
-// 判断并获取替换后的文本
-static NSString *GetReplacementText(UIView *view, NSString *text) {
-    if (!text || ![text isKindOfClass:[NSString class]]) return text;
-    
-    // 只要包含 🄷 (\U0001F137) 或 HWVIP 均进行拦截
-    if ([text containsString:@"\U0001F137"] || [text containsString:@"HWVIP"]) {
-        BOOL isDock = NO;
-        
-        // 1. 判断父视图容器类名
-        UIView *curr = view;
-        while (curr) {
-            NSString *cls = NSStringFromClass([curr class]);
-            if ([cls containsString:@"TabBar"] || 
-                [cls containsString:@"Dock"] || 
-                [cls containsString:@"UITabBarButton"]) {
-                isDock = YES;
-                break;
-            }
-            curr = curr.superview;
+// 1. 判断是否属于底部 TabBar / Dock 容器
+static BOOL IsInDockBar(UIView *view) {
+    UIView *curr = view;
+    while (curr) {
+        NSString *cls = NSStringFromClass([curr class]);
+        if ([cls containsString:@"TabBar"] || 
+            [cls containsString:@"Dock"] || 
+            [cls containsString:@"UITabBarButton"]) {
+            return YES;
         }
-        
-        // 2. 依据屏幕坐标判断：屏幕底部 120pt 区域判定为 Dock 栏
-        if (!isDock && view && view.window) {
-            CGRect rect = [view convertRect:view.bounds toView:nil];
-            CGFloat screenHeight = [UIScreen mainScreen].bounds.size.height;
-            if (rect.origin.y > (screenHeight - 120) && rect.origin.y <= screenHeight) {
-                isDock = YES;
-            }
-        }
-        
-        return isDock ? @"\u9996\u9875" : @"Profile";
+        curr = curr.superview;
     }
-    return text;
+    return NO;
 }
 
-// --- UILabel 拦截 ---
+// 2. 核心文本替换逻辑
+static NSString *GetReplacementText(UIView *view, NSString *originalText) {
+    if (!originalText || ![originalText isKindOfClass:[NSString class]]) {
+        return originalText;
+    }
+    
+    // 匹配 🄷🅆🅅🄸🄿 (\U0001F137\U0001F146\U0001F145\U0001F138\U0001F13F) 或 HWVIP
+    if ([originalText containsString:@"\U0001F137\U0001F146\U0001F145\U0001F138\U0001F13F"] || 
+        [originalText containsString:@"HWVIP"]) {
+        
+        if (IsInDockBar(view)) {
+            return @"\u9996\u9875"; // 底部 Dock 栏替换为 "首页"
+        } else {
+            return @"Profile";    // 详情页等其他位置替换为 "Profile"
+        }
+    }
+    return originalText;
+}
+
+// --- Hook 1: UILabel setText: ---
 static void CustomSetText(UILabel *self, SEL _cmd, NSString *text) {
     NSString *newText = GetReplacementText(self, text);
     ((void(*)(id, SEL, NSString *))gOriginalSetText)(self, _cmd, newText);
 }
 
+// --- Hook 2: UILabel setAttributedText: ---
 static void CustomSetAttributedText(UILabel *self, SEL _cmd, NSAttributedString *attrText) {
     if (attrText && [attrText isKindOfClass:[NSAttributedString class]]) {
         NSString *str = attrText.string;
-        if ([str containsString:@"\U0001F137"] || [str containsString:@"HWVIP"]) {
+        if ([str containsString:@"\U0001F137\U0001F146\U0001F145\U0001F138\U0001F13F"] || 
+            [str containsString:@"HWVIP"]) {
+            
             NSString *replaced = GetReplacementText(self, str);
-            NSDictionary *attrs = attrText.length > 0 ? [attrText attributesAtIndex:0 effectiveRange:NULL] : nil;
-            NSAttributedString *newAttr = [[NSAttributedString alloc] initWithString:replaced attributes:attrs];
-            ((void(*)(id, SEL, NSAttributedString *))gOriginalSetAttributedText)(self, _cmd, newAttr);
+            NSMutableAttributedString *mutableAttr = [attrText mutableCopy];
+            [mutableAttr replaceCharactersInRange:NSMakeRange(0, attrText.length) withString:replaced];
+            ((void(*)(id, SEL, NSAttributedString *))gOriginalSetAttributedText)(self, _cmd, mutableAttr);
             return;
         }
     }
     ((void(*)(id, SEL, NSAttributedString *))gOriginalSetAttributedText)(self, _cmd, attrText);
 }
 
-static void CustomUILabelLayout(UILabel *self, SEL _cmd) {
-    ((void(*)(id, SEL))gOriginalUILabelLayout)(self, _cmd);
-    NSString *text = self.text;
-    if (text && [text isKindOfClass:[NSString class]]) {
-        if ([text containsString:@"\U0001F137"] || [text containsString:@"HWVIP"]) {
-            NSString *replaced = GetReplacementText(self, text);
-            if (![text isEqualToString:replaced]) {
-                self.text = replaced;
-            }
-        }
-    }
-}
-
-// --- UIButton 拦截 ---
+// --- Hook 3: UIButton setTitle:forState: ---
 static void CustomSetTitle(UIButton *self, SEL _cmd, NSString *title, UIControlState state) {
     NSString *newTitle = GetReplacementText(self, title);
     ((void(*)(id, SEL, NSString *, UIControlState))gOriginalSetTitle)(self, _cmd, newTitle, state);
 }
 
-static void CustomUIButtonLayout(UIButton *self, SEL _cmd) {
-    ((void(*)(id, SEL))gOriginalUIButtonLayout)(self, _cmd);
-    NSString *title = [self titleForState:UIControlStateNormal];
-    if (title && [title isKindOfClass:[NSString class]]) {
-        if ([title containsString:@"\U0001F137"] || [title containsString:@"HWVIP"]) {
-            NSString *replaced = GetReplacementText(self, title);
-            if (![title isEqualToString:replaced]) {
-                [self setTitle:replaced forState:UIControlStateNormal];
-            }
-        }
-    }
+// --- Hook 4: UITextView setText: ---
+static void CustomTVSetText(UITextView *self, SEL _cmd, NSString *text) {
+    NSString *newText = GetReplacementText(self, text);
+    ((void(*)(id, SEL, NSString *))gOriginalTVSetText)(self, _cmd, newText);
 }
 
-// 动态库初始化方法
+// 动态库初始化入口
 __attribute__((constructor)) static void entry() {
     Class labelCls = [UILabel class];
-    
     SEL sel1 = @selector(setText:);
     Method m1 = class_getInstanceMethod(labelCls, sel1);
     if (m1) gOriginalSetText = method_setImplementation(m1, (IMP)CustomSetText);
@@ -107,17 +87,13 @@ __attribute__((constructor)) static void entry() {
     Method m2 = class_getInstanceMethod(labelCls, sel2);
     if (m2) gOriginalSetAttributedText = method_setImplementation(m2, (IMP)CustomSetAttributedText);
     
-    SEL sel3 = @selector(layoutSubviews);
-    Method m3 = class_getInstanceMethod(labelCls, sel3);
-    if (m3) gOriginalUILabelLayout = method_setImplementation(m3, (IMP)CustomUILabelLayout);
-    
     Class btnCls = [UIButton class];
+    SEL sel3 = @selector(setTitle:forState:);
+    Method m3 = class_getInstanceMethod(btnCls, sel3);
+    if (m3) gOriginalSetTitle = method_setImplementation(m3, (IMP)CustomSetTitle);
     
-    SEL sel4 = @selector(setTitle:forState:);
-    Method m4 = class_getInstanceMethod(btnCls, sel4);
-    if (m4) gOriginalSetTitle = method_setImplementation(m4, (IMP)CustomSetTitle);
-    
-    SEL sel5 = @selector(layoutSubviews);
-    Method m5 = class_getInstanceMethod(btnCls, sel5);
-    if (m5) gOriginalUIButtonLayout = method_setImplementation(m5, (IMP)CustomUIButtonLayout);
+    Class tvCls = [UITextView class];
+    SEL sel4 = @selector(setText:);
+    Method m4 = class_getInstanceMethod(tvCls, sel4);
+    if (m4) gOriginalTVSetText = method_setImplementation(m4, (IMP)CustomTVSetText);
 }
