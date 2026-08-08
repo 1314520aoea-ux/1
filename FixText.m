@@ -8,11 +8,10 @@ static IMP gOriginalSetTitle = NULL;
 static IMP gOriginalTVSetText = NULL;
 static IMP gOriginalCATextLayerSetString = NULL;
 
-// 1. 模糊判断是否包含 watermark 字符
+// 1. 匹配 watermark 字符
 static BOOL ContainsWatermark(NSString *text) {
     if (!text || ![text isKindOfClass:[NSString class]]) return NO;
     
-    // 匹配 HWVIP 或任意框框特殊字符 🄷 🅆 🅅 🄸 🄿
     if ([text containsString:@"HWVIP"] ||
         [text containsString:@"\U0001F137"] || // 🄷
         [text containsString:@"\U0001F146"] || // 🅆
@@ -29,10 +28,13 @@ static BOOL IsInDockBar(id viewOrLayer) {
     UIView *curr = nil;
     if ([viewOrLayer isKindOfClass:[UIView class]]) {
         curr = (UIView *)viewOrLayer;
-    } else if ([viewOrLayer isKindOfClass:[CALayer class]]) {
-        id delegate = [(CALayer *)viewOrLayer delegate];
-        if ([delegate isKindOfClass:[UIView class]]) {
-            curr = (UIView *)delegate;
+    } else {
+        Class caLayerCls = NSClassFromString(@"CALayer");
+        if (caLayerCls && [viewOrLayer isKindOfClass:caLayerCls]) {
+            id delegate = [viewOrLayer performSelector:@selector(delegate)];
+            if ([delegate isKindOfClass:[UIView class]]) {
+                curr = (UIView *)delegate;
+            }
         }
     }
     
@@ -57,17 +59,16 @@ static NSString *GetReplacementText(id viewOrLayer, NSString *originalText) {
     if (IsInDockBar(viewOrLayer)) {
         return @"\u9996\u9875"; // 底部 Dock 栏显示 "首页"
     } else {
-        return @"Profile";    // 详情页等其他地方统一恢复为 "Profile"
+        return @"Profile";    // 详情页等其他地方恢复为 "Profile"
     }
 }
 
-// --- Hook 1: UILabel setText: ---
+// --- Hook 方法定义 ---
 static void CustomSetText(UILabel *self, SEL _cmd, NSString *text) {
     NSString *newText = GetReplacementText(self, text);
     ((void(*)(id, SEL, NSString *))gOriginalSetText)(self, _cmd, newText);
 }
 
-// --- Hook 2: UILabel setAttributedText: ---
 static void CustomSetAttributedText(UILabel *self, SEL _cmd, NSAttributedString *attrText) {
     if (attrText && [attrText isKindOfClass:[NSAttributedString class]]) {
         NSString *str = attrText.string;
@@ -82,19 +83,16 @@ static void CustomSetAttributedText(UILabel *self, SEL _cmd, NSAttributedString 
     ((void(*)(id, SEL, NSAttributedString *))gOriginalSetAttributedText)(self, _cmd, attrText);
 }
 
-// --- Hook 3: UIButton setTitle:forState: ---
 static void CustomSetTitle(UIButton *self, SEL _cmd, NSString *title, UIControlState state) {
     NSString *newTitle = GetReplacementText(self, title);
     ((void(*)(id, SEL, NSString *, UIControlState))gOriginalSetTitle)(self, _cmd, newTitle, state);
 }
 
-// --- Hook 4: UITextView setText: ---
 static void CustomTVSetText(UITextView *self, SEL _cmd, NSString *text) {
     NSString *newText = GetReplacementText(self, text);
     ((void(*)(id, SEL, NSString *))gOriginalTVSetText)(self, _cmd, newText);
 }
 
-// --- Hook 5: CATextLayer setString: (专门拦截媒体详情列表) ---
 static void CustomCATextLayerSetString(id self, SEL _cmd, id string) {
     if ([string isKindOfClass:[NSString class]]) {
         NSString *newStr = GetReplacementText(self, (NSString *)string);
@@ -114,7 +112,7 @@ static void CustomCATextLayerSetString(id self, SEL _cmd, id string) {
     }
 }
 
-// 动态库初始化入口
+// 动态库初始化
 __attribute__((constructor)) static void entry() {
     Class labelCls = [UILabel class];
     SEL sel1 = @selector(setText:);
