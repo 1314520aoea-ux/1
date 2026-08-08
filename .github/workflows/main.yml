@@ -11,7 +11,7 @@ jobs:
         run: |
           xcrun -sdk iphoneos clang -dynamiclib -arch arm64 -fobjc-arc \
           -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
-          -framework Foundation -framework UIKit \
+          -framework Foundation -framework UIKit -framework QuartzCore \
           FixText.m -o FixText.dylib
 
       - name: Upload artifact
