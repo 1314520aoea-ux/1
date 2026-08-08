@@ -23,8 +23,8 @@ static BOOL ContainsWatermark(NSString *text) {
     return NO;
 }
 
-// 2. 判断是否位于底部 Dock / Tab 栏
-static BOOL IsInDockBar(id viewOrLayer) {
+// 2. 判断是否位于媒体详情页的信息卡片内（Profile 所在的区域）
+static BOOL IsInMediaDetailProfile(id viewOrLayer) {
     UIView *curr = nil;
     if ([viewOrLayer isKindOfClass:[UIView class]]) {
         curr = (UIView *)viewOrLayer;
@@ -40,9 +40,11 @@ static BOOL IsInDockBar(id viewOrLayer) {
     
     while (curr) {
         NSString *cls = NSStringFromClass([curr class]);
-        if ([cls containsString:@"TabBar"] || 
-            [cls containsString:@"Dock"] || 
-            [cls containsString:@"UITabBarButton"]) {
+        // 如果父容器包含媒体信息、卡片、规格列表等类名
+        if ([cls containsString:@"MediaInfo"] || 
+            [cls containsString:@"Detail"] || 
+            [cls containsString:@"Codec"] || 
+            [cls containsString:@"StreamInfo"]) {
             return YES;
         }
         curr = curr.superview;
@@ -50,20 +52,22 @@ static BOOL IsInDockBar(id viewOrLayer) {
     return NO;
 }
 
-// 3. 统一替换处理
+// 3. 精准替换处理
 static NSString *GetReplacementText(id viewOrLayer, NSString *originalText) {
     if (!ContainsWatermark(originalText)) {
         return originalText;
     }
     
-    if (IsInDockBar(viewOrLayer)) {
-        return @"\u9996\u9875"; // 底部 Dock 栏显示 "首页"
-    } else {
-        return @"Profile";    // 详情页等其他地方恢复为 "Profile"
+    // 如果是详情页里的 Profile 字段，替换为 "Profile"
+    if (IsInMediaDetailProfile(viewOrLayer)) {
+        return @"Profile";
     }
+    
+    // 其他所有地方（包括底部 Dock 栏、左上角下拉菜单选项），统一恢复为 "首页"
+    return @"\u9996\u9875";
 }
 
-// --- Hook 方法定义 ---
+// --- Hook 方法 ---
 static void CustomSetText(UILabel *self, SEL _cmd, NSString *text) {
     NSString *newText = GetReplacementText(self, text);
     ((void(*)(id, SEL, NSString *))gOriginalSetText)(self, _cmd, newText);
@@ -112,7 +116,7 @@ static void CustomCATextLayerSetString(id self, SEL _cmd, id string) {
     }
 }
 
-// 动态库初始化
+// 动态库初始化入口
 __attribute__((constructor)) static void entry() {
     Class labelCls = [UILabel class];
     SEL sel1 = @selector(setText:);
