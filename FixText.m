@@ -6,10 +6,36 @@ static IMP gOriginalSetText = NULL;
 static IMP gOriginalSetAttributedText = NULL;
 static IMP gOriginalSetTitle = NULL;
 static IMP gOriginalTVSetText = NULL;
+static IMP gOriginalCATextLayerSetString = NULL;
 
-// 1. 判断是否属于底部 TabBar / Dock 容器
-static BOOL IsInDockBar(UIView *view) {
-    UIView *curr = view;
+// 1. 模糊判断是否包含 watermark 字符
+static BOOL ContainsWatermark(NSString *text) {
+    if (!text || ![text isKindOfClass:[NSString class]]) return NO;
+    
+    // 匹配 HWVIP 或任意框框特殊字符 🄷 🅆 🅅 🄸 🄿
+    if ([text containsString:@"HWVIP"] ||
+        [text containsString:@"\U0001F137"] || // 🄷
+        [text containsString:@"\U0001F146"] || // 🅆
+        [text containsString:@"\U0001F145"] || // 🅅
+        [text containsString:@"\U0001F138"] || // 🄸
+        [text containsString:@"\U0001F13F"]) { // 🄿
+        return YES;
+    }
+    return NO;
+}
+
+// 2. 判断是否位于底部 Dock / Tab 栏
+static BOOL IsInDockBar(id viewOrLayer) {
+    UIView *curr = nil;
+    if ([viewOrLayer isKindOfClass:[UIView class]]) {
+        curr = (UIView *)viewOrLayer;
+    } else if ([viewOrLayer isKindOfClass:[CALayer class]]) {
+        id delegate = [(CALayer *)viewOrLayer delegate];
+        if ([delegate isKindOfClass:[UIView class]]) {
+            curr = (UIView *)delegate;
+        }
+    }
+    
     while (curr) {
         NSString *cls = NSStringFromClass([curr class]);
         if ([cls containsString:@"TabBar"] || 
@@ -22,23 +48,17 @@ static BOOL IsInDockBar(UIView *view) {
     return NO;
 }
 
-// 2. 核心文本替换逻辑
-static NSString *GetReplacementText(UIView *view, NSString *originalText) {
-    if (!originalText || ![originalText isKindOfClass:[NSString class]]) {
+// 3. 统一替换处理
+static NSString *GetReplacementText(id viewOrLayer, NSString *originalText) {
+    if (!ContainsWatermark(originalText)) {
         return originalText;
     }
     
-    // 匹配 🄷🅆🅅🄸🄿 (\U0001F137\U0001F146\U0001F145\U0001F138\U0001F13F) 或 HWVIP
-    if ([originalText containsString:@"\U0001F137\U0001F146\U0001F145\U0001F138\U0001F13F"] || 
-        [originalText containsString:@"HWVIP"]) {
-        
-        if (IsInDockBar(view)) {
-            return @"\u9996\u9875"; // 底部 Dock 栏替换为 "首页"
-        } else {
-            return @"Profile";    // 详情页等其他位置替换为 "Profile"
-        }
+    if (IsInDockBar(viewOrLayer)) {
+        return @"\u9996\u9875"; // 底部 Dock 栏显示 "首页"
+    } else {
+        return @"Profile";    // 详情页等其他地方统一恢复为 "Profile"
     }
-    return originalText;
 }
 
 // --- Hook 1: UILabel setText: ---
@@ -51,9 +71,7 @@ static void CustomSetText(UILabel *self, SEL _cmd, NSString *text) {
 static void CustomSetAttributedText(UILabel *self, SEL _cmd, NSAttributedString *attrText) {
     if (attrText && [attrText isKindOfClass:[NSAttributedString class]]) {
         NSString *str = attrText.string;
-        if ([str containsString:@"\U0001F137\U0001F146\U0001F145\U0001F138\U0001F13F"] || 
-            [str containsString:@"HWVIP"]) {
-            
+        if (ContainsWatermark(str)) {
             NSString *replaced = GetReplacementText(self, str);
             NSMutableAttributedString *mutableAttr = [attrText mutableCopy];
             [mutableAttr replaceCharactersInRange:NSMakeRange(0, attrText.length) withString:replaced];
@@ -76,6 +94,26 @@ static void CustomTVSetText(UITextView *self, SEL _cmd, NSString *text) {
     ((void(*)(id, SEL, NSString *))gOriginalTVSetText)(self, _cmd, newText);
 }
 
+// --- Hook 5: CATextLayer setString: (专门拦截媒体详情列表) ---
+static void CustomCATextLayerSetString(id self, SEL _cmd, id string) {
+    if ([string isKindOfClass:[NSString class]]) {
+        NSString *newStr = GetReplacementText(self, (NSString *)string);
+        ((void(*)(id, SEL, id))gOriginalCATextLayerSetString)(self, _cmd, newStr);
+    } else if ([string isKindOfClass:[NSAttributedString class]]) {
+        NSAttributedString *attrStr = (NSAttributedString *)string;
+        if (ContainsWatermark(attrStr.string)) {
+            NSString *replaced = GetReplacementText(self, attrStr.string);
+            NSDictionary *attrs = attrStr.length > 0 ? [attrStr attributesAtIndex:0 effectiveRange:NULL] : nil;
+            NSAttributedString *newAttr = [[NSAttributedString alloc] initWithString:replaced attributes:attrs];
+            ((void(*)(id, SEL, id))gOriginalCATextLayerSetString)(self, _cmd, newAttr);
+            return;
+        }
+        ((void(*)(id, SEL, id))gOriginalCATextLayerSetString)(self, _cmd, string);
+    } else {
+        ((void(*)(id, SEL, id))gOriginalCATextLayerSetString)(self, _cmd, string);
+    }
+}
+
 // 动态库初始化入口
 __attribute__((constructor)) static void entry() {
     Class labelCls = [UILabel class];
@@ -96,4 +134,11 @@ __attribute__((constructor)) static void entry() {
     SEL sel4 = @selector(setText:);
     Method m4 = class_getInstanceMethod(tvCls, sel4);
     if (m4) gOriginalTVSetText = method_setImplementation(m4, (IMP)CustomTVSetText);
+    
+    Class caTextLayerCls = NSClassFromString(@"CATextLayer");
+    if (caTextLayerCls) {
+        SEL sel5 = @selector(setString:);
+        Method m5 = class_getInstanceMethod(caTextLayerCls, sel5);
+        if (m5) gOriginalCATextLayerSetString = method_setImplementation(m5, (IMP)CustomCATextLayerSetString);
+    }
 }
