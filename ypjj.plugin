@@ -4,8 +4,7 @@ desc=音频剪辑 VIP 本地改写脚本
 author=User
 
 [Script]
-http-response ^https?:\/\/.*\/api\/v\d+\/(user|vip|profile) script-path=https://cdn.jsdelivr.net/gh/1314520aoea-ux/1@main/ypjj.js, requires-body=true, tag=ypjj_unlock
+http-response ^https?:\/\/(api\.revenuecat\.com\/v1\/(subscribers|receipts)|.*\/api\/v\d+\/(user|vip|profile)) script-path=https://cdn.jsdelivr.net/gh/1314520aoea-ux/1@main/ypjj.js, requires-body=true, tag=ypjj_unlock
 
 [MITM]
-hostname = *.audioeditor.*, *.appapi.*
-
+hostname = api.revenuecat.com, *.audioeditor.*, *.appapi.*
