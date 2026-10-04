@@ -1,5 +1,11 @@
-// 喜马拉雅 VIP 解锁 - 保留原始头像昵称
-// 诊断 + VIP注入脚本
+/*
+#!name=喜马拉雅 homePage 诊断
+#!desc=记录 homePage 响应结构，帮助分析 VIP 字段
+[rewrite_local]
+^https?:\/\/.+((ximalaya)|(xmcdn)).+mobile-user\/v2\/homePage url script-response-body https://raw.githubusercontent.com/1314520aoea-ux/1/refs/heads/main/ximalaya_homepage.js
+[mitm]
+hostname = *.ximalaya.com, *.xmcdn.com
+*/
 
 (function() {
     const url = $request.url;
@@ -19,11 +25,9 @@
     }
     
     if (isHomePage) {
-        // 诊断：记录响应结构
         const topLevelKeys = Object.keys(body);
         $notification.post('喜马拉雅 homePage 结构', '顶层字段', topLevelKeys.join(', '));
         
-        // 递归查找用户相关字段
         function findUserFields(obj, path, results) {
             if (!obj || typeof obj !== 'object') return;
             if (results.length > 30) return;
@@ -56,7 +60,6 @@
             $notification.post('喜马拉雅 用户字段', '找到 ' + userFields.length + ' 个', summary);
         }
         
-        // VIP注入：尝试常见的VIP字段名
         const vipFields = [
             'isVip', 'isVIP', 'is_vip', 'vipStatus', 'vip_status',
             'memberStatus', 'member_status', 'hasVip', 'has_vip'
@@ -65,7 +68,6 @@
             if (body[f] !== undefined) body[f] = true;
         });
         
-        // 在嵌套对象中也尝试设置VIP状态
         function setVipInObject(obj) {
             if (!obj || typeof obj !== 'object') return;
             vipFields.forEach(f => {
