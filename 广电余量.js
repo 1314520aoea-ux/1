@@ -657,24 +657,9 @@ async function loadData(ctx) {
   const debug = env.CBN_DEBUG === 'true';
   const phone = getPhone(ctx);
   
-  // 测试：硬编码环境变量（临时调试用）
-  const testEnv = {
-    CBN_COOKIE: 'SERVERID=25ed118c924889e65f55500ff40e9cc7|1791469431|1791469408; X-LB=2.526.e4637d0c.1f54; hQc2Qn4eLeq4P=0JjMtVzoC4n.YxxSG2B',
-    CBN_PHONENUMBER: '19290879223',
-    CBN_DEBUG: 'true'
-  };
-  
-  // 优先使用环境变量，其次使用测试值
-  const envCookie = (env.CBN_COOKIE || testEnv.CBN_COOKIE || '').trim();
+  const envCookie = (env.CBN_COOKIE || '').trim();
   const storedCookie = ctx.storage.get(STORE.cookie) || '';
   const hasCookie = !!(envCookie || storedCookie);
-
-  // 调试信息：显示 Cookie 来源
-  if (debug || env.CBN_DEBUG === 'true') {
-    const cookieSource = env.CBN_COOKIE ? '环境变量' : (envCookie === testEnv.CBN_COOKIE ? '硬编码测试' : (storedCookie ? '存储' : '无'));
-    const debugInfo = `Cookie来源: ${cookieSource}\n环境变量CBN_COOKIE长度: ${(env.CBN_COOKIE || '').length}\n硬编码测试长度: ${testEnv.CBN_COOKIE.length}\n存储长度: ${storedCookie.length}\n手机号: ${phone || '未设置'}\nctx.env键: ${Object.keys(env).join(',') || '无'}`;
-    try { ctx.storage.set(STORE.rawDebug, debugInfo); } catch (e) {}
-  }
 
   if (!hasCookie) return { configured: false, reason: 'capture', debug };
   if (!/^\d{11}$/.test(phone)) return { configured: false, reason: 'phone', debug };
@@ -701,6 +686,12 @@ async function loadData(ctx) {
 
 function parseCbnData(resp, ctx) {
   const ud = (resp && resp.data && resp.data.userData) || {};
+  const env = ctx.env || {};
+
+  if (env.CBN_DEBUG === 'true') {
+    const keys = Object.keys(ud).join(', ');
+    try { ctx.storage.set(STORE.rawDebug, `API字段: ${keys}\nflow=${ud.flow}\nflowAll=${ud.flowAll}\nflowUserd=${ud.flowUserd}\nflowUsed=${ud.flowUsed}\nvoice=${ud.voice}\nvoiceAll=${ud.voiceAll}\nfinBalance=${ud.finBalance}\nfee=${ud.fee}`); } catch (e) {}
+  }
 
   // 话费
   const feeNum = ud.finBalance != null
@@ -712,11 +703,10 @@ function parseCbnData(resp, ctx) {
     unit: '元',
   };
 
-  // 流量（字节 → MB/GB）
-  const flowRemain = parseFloat(ud.flow || '0');
-  const flowTotal = parseFloat(ud.flowAll || '0');
-  const flowUsed = parseFloat(ud.flowUserd || '0');
-  const env = ctx.env || {};
+  // 流量（字节 → MB/GB）— 兼容多种字段名
+  const flowRemain = parseFloat(ud.flow || ud.flowRemain || ud.remainFlow || '0');
+  const flowTotal = parseFloat(ud.flowAll || ud.totalFlow || ud.allFlow || '0');
+  const flowUsed = parseFloat(ud.flowUserd || ud.flowUsed || ud.usedFlow || '0');
   const showUsed = env.CBN_SHOW_USED_FLOW === 'true';
 
   const flowMB = flowRemain / (1024 * 1024);
@@ -1189,13 +1179,13 @@ async function handleWidget(ctx) {
   }
   if (!r.ds) {
     const hint = r.stage === 'network'
-      ? '网络请求失败，请检查网络或代理'
+      ? `网络请求失败: ${r.error || ''}`
       : r.stage === 'session'
-        ? '登录已过期：打开「中国广电」App 停留 10 秒刷新登录，再回桌面'
+        ? `登录过期: ${r.error || ''}`
         : r.stage === 'parse'
-          ? '数据解析失败：App 可能更新了接口格式'
-          : '查询失败：打开「中国广电」App 等 10 秒，让脚本刷新 Cookie 后再试';
-    return buildError(title, hint, r.debug ? `错误: ${r.error || ''}` : '');
+          ? `解析失败: ${r.error || ''}`
+          : `查询失败: ${r.error || ''}`;
+    return buildError(title, hint, '');
   }
 
   const family = ctx.widgetFamily || 'systemSmall';
