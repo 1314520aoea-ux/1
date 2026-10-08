@@ -656,6 +656,13 @@ async function loadData(ctx) {
   const envCookie = (ctx.env.CBN_COOKIE || '').trim();
   const storedCookie = ctx.storage.get(STORE.cookie) || '';
   const hasCookie = !!(envCookie || storedCookie);
+
+  // 调试信息：显示 Cookie 来源
+  if (debug) {
+    const cookieSource = envCookie ? '环境变量' : (storedCookie ? '存储' : '无');
+    ctx.storage.set(STORE.rawDebug, `Cookie来源: ${cookieSource}\n环境变量长度: ${envCookie.length}\n存储长度: ${storedCookie.length}\n手机号: ${phone || '未设置'}`);
+  }
+
   if (!hasCookie) return { configured: false, reason: 'capture', debug };
   if (!/^\d{11}$/.test(phone)) return { configured: false, reason: 'phone', debug };
 
