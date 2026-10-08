@@ -395,7 +395,7 @@ function buildEncryptedRequest(dataObj) {
 
 const API_BASE = 'https://app.10099.com.cn/contact-web/api';
 const API_USERINFO = API_BASE + '/busi/qryUserInfo';
-const UA_CBN = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_3_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148';
+const UA_CBN = 'ChinaRadio/2.2.1 (iPhone; iOS 18.7; Scale/3.00)';
 
 const STORE = {
   cookie: 'cbn_cookie',
@@ -461,32 +461,42 @@ async function handleCapture(ctx) {
   const cookie = String(getHeader(headers, 'cookie') || '').trim();
   if (cookie) ctx.storage.set(STORE.cookie, cookie);
 
-  // 尝试从请求体提取手机号
-  let rawBody = '';
-  try {
-    if (typeof $request !== 'undefined' && $request && typeof $request.body === 'string' && $request.body.length > 0) {
-      rawBody = $request.body;
+  // 从 cbn_info Cookie 提取手机号（格式：hash,true,手机号,省份代码,...）
+  let phone = '';
+  const cbnInfoMatch = cookie.match(/cbn_info=([^;]+)/);
+  if (cbnInfoMatch) {
+    const parts = cbnInfoMatch[1].split(',');
+    if (parts.length >= 3 && /^\d{11}$/.test(parts[2])) {
+      phone = parts[2];
     }
-  } catch (e) {}
-  if (!rawBody) {
-    const cb = req.body;
-    rawBody = typeof cb === 'string' ? cb : JSON.stringify(cb || '');
   }
 
-  // 尝试从 body 或 URL 里提取手机号
-  let phone = '';
-  try {
-    const bodyObj = JSON.parse(rawBody);
-    if (bodyObj.phone) phone = String(bodyObj.phone);
-    else if (bodyObj.mobile) phone = String(bodyObj.mobile);
-  } catch (e) {
-    const m = rawBody.match(/(?:phone|mobile)["\s:]+(\d{11})/);
-    if (m) phone = m[1];
-  }
+  // 备用：尝试从请求体提取手机号（虽然实际请求体是加密的）
   if (!phone) {
-    const um = url.match(/(?:phone|mobile)=(\d{11})/);
-    if (um) phone = um[1];
+    let rawBody = '';
+    try {
+      if (typeof $request !== 'undefined' && $request && typeof $request.body === 'string' && $request.body.length > 0) {
+        rawBody = $request.body;
+      }
+    } catch (e) {}
+    if (!rawBody) {
+      const cb = req.body;
+      rawBody = typeof cb === 'string' ? cb : JSON.stringify(cb || '');
+    }
+    try {
+      const bodyObj = JSON.parse(rawBody);
+      if (bodyObj.phone) phone = String(bodyObj.phone);
+      else if (bodyObj.mobile) phone = String(bodyObj.mobile);
+    } catch (e) {
+      const m = rawBody.match(/(?:phone|mobile)["\s:]+(\d{11})/);
+      if (m) phone = m[1];
+    }
+    if (!phone) {
+      const um = url.match(/(?:phone|mobile)=(\d{11})/);
+      if (um) phone = um[1];
+    }
   }
+
   if (/^\d{11}$/.test(phone)) {
     ctx.storage.set(STORE.phone, phone);
     dlog(ctx, `捕获手机号: ${phone.slice(0, 3)}****${phone.slice(7)}`);
@@ -571,7 +581,11 @@ async function queryUserInfo(ctx) {
     e.stage = 'phone';
     throw e;
   }
-  const cookie = ctx.storage.get(STORE.cookie) || '';
+  // 优先使用环境变量 CBN_COOKIE，其次使用存储的 Cookie
+  let cookie = (ctx.env.CBN_COOKIE || '').trim();
+  if (!cookie) {
+    cookie = ctx.storage.get(STORE.cookie) || '';
+  }
   if (!cookie) {
     const e = new Error('no-cookie');
     e.stage = 'capture';
