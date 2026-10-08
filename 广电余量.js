@@ -1156,11 +1156,25 @@ function buildError(title, message, extra) {
 async function handleWidget(ctx) {
   const env = ctx.env || {};
   const title = (env.CBN_TITLE || '中国广电').trim() || '中国广电';
+  
+  // 调试：在小组件上显示环境变量信息
+  const debug = env.CBN_DEBUG === 'true';
+  if (debug) {
+    const envKeys = Object.keys(env).join(', ') || '无';
+    const envInfo = `环境变量: ${envKeys}\nCBN_COOKIE长度: ${(env.CBN_COOKIE || '').length}\nCBN_PHONENUMBER: ${env.CBN_PHONENUMBER || '未设置'}`;
+    try { ctx.storage.set(STORE.rawDebug, envInfo); } catch (e) {}
+  }
+  
   const r = await loadData(ctx);
 
   if (!r.configured) {
     if (r.reason === 'phone') {
       return buildError(title, '请在模块 Env 里填写 CBN_PHONENUMBER（11 位广电手机号）');
+    }
+    // 显示调试信息
+    if (debug) {
+      const envInfo = ctx.storage.get(STORE.rawDebug) || '无法读取调试信息';
+      return buildError(title, `还没抓到登录 Cookie\n\n调试信息:\n${envInfo}`, '检查环境变量是否正确配置');
     }
     return buildError(title, '还没抓到登录 Cookie：打开「中国广电」App，用短信验证码登录一次，或在模块 Env 里填写 CBN_COOKIE');
   }
@@ -1213,5 +1227,5 @@ async function main(ctx) {
   }
 }
 
-// Egern 脚本入口
-main;
+// Egern 脚本入口 - 导出主函数
+export default main;
