@@ -652,7 +652,10 @@ function absorbSetCookie(ctx, headers) {
 async function loadData(ctx) {
   const debug = ctx.env.CBN_DEBUG === 'true';
   const phone = getPhone(ctx);
-  const hasCookie = !!(ctx.storage.get(STORE.cookie));
+  // 优先检查环境变量 CBN_COOKIE，其次检查存储的 Cookie
+  const envCookie = (ctx.env.CBN_COOKIE || '').trim();
+  const storedCookie = ctx.storage.get(STORE.cookie) || '';
+  const hasCookie = !!(envCookie || storedCookie);
   if (!hasCookie) return { configured: false, reason: 'capture', debug };
   if (!/^\d{11}$/.test(phone)) return { configured: false, reason: 'phone', debug };
 
