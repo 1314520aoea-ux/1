@@ -558,7 +558,8 @@ function mergeCookies(old, newSC) {
 /* ==================== 数据层 ==================== */
 
 function getPhone(ctx) {
-  const fromEnv = (ctx.env.CBN_PHONENUMBER || '').trim();
+  const env = ctx.env || {};
+  const fromEnv = (env.CBN_PHONENUMBER || '').trim();
   if (/^\d{11}$/.test(fromEnv)) {
     try { ctx.storage.set('cbn_phone_backup', fromEnv); } catch (e) {}
     return fromEnv;
@@ -575,6 +576,7 @@ function getPhone(ctx) {
 }
 
 async function queryUserInfo(ctx) {
+  const env = ctx.env || {};
   const phone = getPhone(ctx);
   if (!/^\d{11}$/.test(phone)) {
     const e = new Error('no-phone');
@@ -582,7 +584,7 @@ async function queryUserInfo(ctx) {
     throw e;
   }
   // 优先使用环境变量 CBN_COOKIE，其次使用存储的 Cookie
-  let cookie = (ctx.env.CBN_COOKIE || '').trim();
+  let cookie = (env.CBN_COOKIE || '').trim();
   if (!cookie) {
     cookie = ctx.storage.get(STORE.cookie) || '';
   }
@@ -616,7 +618,8 @@ async function queryUserInfo(ctx) {
   absorbSetCookie(ctx, resp.headers);
 
   const text = typeof resp.text === 'function' ? await resp.text() : String(resp.body || '');
-  if (ctx.env.CBN_DEBUG === 'true') ctx.storage.set(STORE.rawDebug, text.slice(0, 500));
+  const env = ctx.env || {};
+  if (env.CBN_DEBUG === 'true') ctx.storage.set(STORE.rawDebug, text.slice(0, 500));
 
   let data;
   try {
@@ -650,10 +653,11 @@ function absorbSetCookie(ctx, headers) {
 }
 
 async function loadData(ctx) {
-  const debug = ctx.env.CBN_DEBUG === 'true';
+  const env = ctx.env || {};
+  const debug = env.CBN_DEBUG === 'true';
   const phone = getPhone(ctx);
   // 优先检查环境变量 CBN_COOKIE，其次检查存储的 Cookie
-  const envCookie = (ctx.env.CBN_COOKIE || '').trim();
+  const envCookie = (env.CBN_COOKIE || '').trim();
   const storedCookie = ctx.storage.get(STORE.cookie) || '';
   const hasCookie = !!(envCookie || storedCookie);
 
@@ -703,7 +707,8 @@ function parseCbnData(resp, ctx) {
   const flowRemain = parseFloat(ud.flow || '0');
   const flowTotal = parseFloat(ud.flowAll || '0');
   const flowUsed = parseFloat(ud.flowUserd || '0');
-  const showUsed = ctx.env.CBN_SHOW_USED_FLOW === 'true';
+  const env = ctx.env || {};
+  const showUsed = env.CBN_SHOW_USED_FLOW === 'true';
 
   const flowMB = flowRemain / (1024 * 1024);
   const flowTotalMB = flowTotal / (1024 * 1024);
@@ -791,7 +796,8 @@ function insights(ctx, ds) {
   const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const daysLeft = dim - now.getDate() + 1;
   const _g = toMB(ds.flow), _o = toMB(ds.otherFlow);
-  const flowMB = ctx.env.CBN_SHOW_USED_FLOW === 'true' ? null
+  const env = ctx.env || {};
+  const flowMB = env.CBN_SHOW_USED_FLOW === 'true' ? null
     : (_g == null && _o == null ? null : (_g || 0) + (_o || 0));
   let todayMB = null;
   if (flowMB != null) {
@@ -1148,14 +1154,15 @@ function buildError(title, message, extra) {
 /* ==================== 小组件（generic） ==================== */
 
 async function handleWidget(ctx) {
-  const title = (ctx.env.CBN_TITLE || '中国广电').trim() || '中国广电';
+  const env = ctx.env || {};
+  const title = (env.CBN_TITLE || '中国广电').trim() || '中国广电';
   const r = await loadData(ctx);
 
   if (!r.configured) {
     if (r.reason === 'phone') {
       return buildError(title, '请在模块 Env 里填写 CBN_PHONENUMBER（11 位广电手机号）');
     }
-    return buildError(title, '还没抓到登录 Cookie：打开「中国广电」App，用短信验证码登录一次');
+    return buildError(title, '还没抓到登录 Cookie：打开「中国广电」App，用短信验证码登录一次，或在模块 Env 里填写 CBN_COOKIE');
   }
   if (!r.ds) {
     const hint = r.stage === 'network'
@@ -1177,12 +1184,34 @@ async function handleWidget(ctx) {
 
 /* ==================== 入口：单文件三模式 ==================== */
 
-export default async function (ctx) {
-  if (ctx.request && ctx.request.url) {
-    if (ctx.response && (ctx.response.status || ctx.response.headers)) {
-      return handleRespCapture(ctx);
+async function main(ctx) {
+  try {
+    if (ctx.request && ctx.request.url) {
+      if (ctx.response && (ctx.response.status || ctx.response.headers)) {
+        return await handleRespCapture(ctx);
+      }
+      return await handleCapture(ctx);
     }
-    return handleCapture(ctx);
+    return await handleWidget(ctx);
+  } catch (e) {
+    // 全局错误处理：如果脚本执行失败，显示错误信息
+    const title = (ctx.env && ctx.env.CBN_TITLE) || '中国广电';
+    return {
+      type: 'widget',
+      padding: 14,
+      gap: 6,
+      backgroundGradient: bg(),
+      children: [
+        t(title, 'footnote', 'semibold'),
+        { type: 'spacer' },
+        { type: 'image', src: 'sf-symbol:exclamationmark.triangle.fill', width: 22, height: 22, color: C_FEE },
+        t(`脚本执行错误: ${String(e.message || e)}`, 'caption1', 'medium', TXT, { maxLines: 4, minScale: 0.7 }),
+        t(`堆栈: ${String(e.stack || '').slice(0, 100)}`, 'caption2', 'regular', SUB, { maxLines: 3 }),
+        { type: 'spacer' },
+      ],
+    };
   }
-  return handleWidget(ctx);
 }
+
+// Egern 脚本入口
+main;
