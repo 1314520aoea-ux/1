@@ -656,15 +656,24 @@ async function loadData(ctx) {
   const env = ctx.env || {};
   const debug = env.CBN_DEBUG === 'true';
   const phone = getPhone(ctx);
-  // 优先检查环境变量 CBN_COOKIE，其次检查存储的 Cookie
-  const envCookie = (env.CBN_COOKIE || '').trim();
+  
+  // 测试：硬编码环境变量（临时调试用）
+  const testEnv = {
+    CBN_COOKIE: 'SERVERID=25ed118c924889e65f55500ff40e9cc7|1791469431|1791469408; X-LB=2.526.e4637d0c.1f54; hQc2Qn4eLeq4P=0JjMtVzoC4n.YxxSG2B',
+    CBN_PHONENUMBER: '19290879223',
+    CBN_DEBUG: 'true'
+  };
+  
+  // 优先使用环境变量，其次使用测试值
+  const envCookie = (env.CBN_COOKIE || testEnv.CBN_COOKIE || '').trim();
   const storedCookie = ctx.storage.get(STORE.cookie) || '';
   const hasCookie = !!(envCookie || storedCookie);
 
   // 调试信息：显示 Cookie 来源
-  if (debug) {
-    const cookieSource = envCookie ? '环境变量' : (storedCookie ? '存储' : '无');
-    ctx.storage.set(STORE.rawDebug, `Cookie来源: ${cookieSource}\n环境变量长度: ${envCookie.length}\n存储长度: ${storedCookie.length}\n手机号: ${phone || '未设置'}`);
+  if (debug || env.CBN_DEBUG === 'true') {
+    const cookieSource = env.CBN_COOKIE ? '环境变量' : (envCookie === testEnv.CBN_COOKIE ? '硬编码测试' : (storedCookie ? '存储' : '无'));
+    const debugInfo = `Cookie来源: ${cookieSource}\n环境变量CBN_COOKIE长度: ${(env.CBN_COOKIE || '').length}\n硬编码测试长度: ${testEnv.CBN_COOKIE.length}\n存储长度: ${storedCookie.length}\n手机号: ${phone || '未设置'}\nctx.env键: ${Object.keys(env).join(',') || '无'}`;
+    try { ctx.storage.set(STORE.rawDebug, debugInfo); } catch (e) {}
   }
 
   if (!hasCookie) return { configured: false, reason: 'capture', debug };
@@ -1198,7 +1207,7 @@ async function handleWidget(ctx) {
 
 /* ==================== 入口：单文件三模式 ==================== */
 
-async function main(ctx) {
+export default async function(ctx) {
   try {
     if (ctx.request && ctx.request.url) {
       if (ctx.response && (ctx.response.status || ctx.response.headers)) {
@@ -1226,6 +1235,3 @@ async function main(ctx) {
     };
   }
 }
-
-// Egern 脚本入口 - 导出主函数
-export default main;
