@@ -1,0 +1,125 @@
+
+description: 净化，解锁会员
+dns: {}
+rules:
+- domain:
+    match: capsinfo.anythink.com
+    policy: REJECT
+- domain:
+    match: showtime.anythink.com
+    policy: REJECT
+- domain:
+    match: api.bridgeoos.com
+    policy: REJECT
+- domain:
+    match: pitk.birdgesdk.com
+    policy: REJECT
+- domain:
+    match: aa.birdgesdk.com
+    policy: REJECT
+- domain:
+    match: fusion-static.oss-cn-shenzhen.aliyuncs.com
+    policy: REJECT
+- domain:
+    match: mobads.baidu.com
+    policy: REJECT
+- domain:
+    match: cpu.baidu.com
+    policy: REJECT
+- domain:
+    match: cpu-openapi.baidu.com
+    policy: REJECT
+- domain:
+    match: mobads-pre-config.bj.bcebos.com
+    policy: REJECT
+- domain:
+    match: mobads-pre-config.cdn.bcebos.com
+    policy: REJECT
+- domain:
+    match: cpro.baidustatic.com
+    policy: REJECT
+- domain:
+    match: render-server.cdn.bcebos.com
+    policy: REJECT
+- domain:
+    match: adservice.sigmob.cn
+    policy: REJECT
+- domain:
+    match: api.htp.ad-scope.com.cn
+    policy: REJECT
+- domain:
+    match: bid.ad-scope.com.cn
+    policy: REJECT
+- domain:
+    match: api-htp.beizi.biz
+    policy: REJECT
+- domain:
+    match: sdk.beizi.biz
+    policy: REJECT
+- domain:
+    match: sdktmp.hubcloud.com.cn
+    policy: REJECT
+- domain:
+    match: sdk.zhangyuyidong.cn
+    policy: REJECT
+- domain:
+    match: sdk6.zhangyuyidong.cn
+    policy: REJECT
+- domain:
+    match: sdkcfg.adintl.cn
+    policy: REJECT
+- domain:
+    match: test.s.adintl.cn
+    policy: REJECT
+- domain:
+    match: api-cfg.8ziben.com
+    policy: REJECT
+- domain:
+    match: api-incentive.8ziben.com
+    policy: REJECT
+- domain:
+    match: static.8ziben.com
+    policy: REJECT
+- domain:
+    match: opehs.tanx.com
+    policy: REJECT
+- domain:
+    match: videoproxy.tanx.com
+    policy: REJECT
+- domain:
+    match: c.etoolads.cn
+    policy: REJECT
+- domain:
+    match: sdk.adx.adwangmai.com
+    policy: REJECT
+- domain:
+    match: sdk-cfg.adx.adwangmai.com
+    policy: REJECT
+- domain:
+    match: static.adwangmai.com
+    policy: REJECT
+- domain:
+    match: open.e.kuaishou.com
+    policy: REJECT
+- domain:
+    match: open.e.kuaishou.cn
+    policy: REJECT
+- domain:
+    match: s.e.kuaishou.com
+    policy: REJECT
+scriptings:
+- http_response:
+    name: nbpro.ads
+    match: ^https?:\/\/(?:nbtool8\.com(?::(?:9527|9666))?|124\.222\.32\.246(?::9527)?|117\.72\.39\.157(?::9527)?|cesapp\.goypzc\.cn(?::9527)?|47\.243\.71\.210(?::9527)?)\/nb\/app(?:\?.*)?$
+    script_url: https://ddgksf2013.top/scripts/nbpro.ads.js
+    max_size: -1
+    timeout: 60
+    body_required: true
+mitm:
+  hostnames:
+    includes:
+    - nbtool8.com
+    - cesapp.goypzc.cn
+    - 124.222.32.246
+    - 117.72.39.157
+    - 47.243.71.210
