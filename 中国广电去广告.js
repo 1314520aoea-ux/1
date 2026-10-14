@@ -1,4 +1,4 @@
-name: 中国广电去广告@ddgksf2013
+
 description: 全面净化
 dns: {}
 body_rewrites:
