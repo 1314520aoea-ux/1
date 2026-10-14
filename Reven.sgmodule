@@ -1,0 +1,37 @@
+name: Reven
+description: 支持一键解锁 RevenueCat、Superwall 和 Adapty (Adapty 需卸载重装 App 才生效)。如果遇到解锁后报错或闪退的 App (比如 Filebar)，可以直接在模块设置里填名字跳过它！(默认填 '-' 代表全部 App 正常解锁)
+compat_arguments:
+  Mock: https://reven.jsforbaby.workers.dev/reven
+  Bypass: '-'
+  Strategy: auto
+compat_arguments_desc: |-
+  Mock:
+  Reven 网关地址，一般无需修改。
+  Bypass:
+  跳过指定App(绕过解锁)。遇到修改响应会报错的 App (如 Filebar) 可在此填入其 UA 关键词(不区分大小写)，多个用逗号分隔，填 - 表示全部解锁。
+  Strategy:
+  注入策略。
+  auto (默认) = lifetime 优先 + non_subscriptions (官方规范)
+  lifetime_sub = lifetime 塞进 subscriptions + 2099 到期 (兼容老 App)
+  year = 跳过 lifetime, 选 year/annual
+  month = 跳过 lifetime, 选 month
+  all = 注入所有 PID
+  若 auto 模式 lifetime 解锁失败, 请切 lifetime_sub 或 year。
+dns: {}
+url_rewrites:
+- match: ^https:\/\/(api\.revenuecat\.com|api\.rc-backup\.com|rc\.visionarytech\.ltd|revenue\.cuto\.app|proxy\.linearity\.io)\/(.+\/(?:receipts|subscribers\/[^/]+(?:\/attributes)?))$
+  location: https://reven.jsforbaby.workers.dev/reven/$1/$2?bypass=-&strategy=auto
+- match: ^https:\/\/subscriptions-api\.superwall\.com\/(.+)
+  location: https://reven.jsforbaby.workers.dev/reven/subscriptions-api.superwall.com/$1?bypass=-&strategy=auto
+- match: ^https:\/\/api\.adapty\.io\/(.+)
+  location: https://reven.jsforbaby.workers.dev/reven/api.adapty.io/$1?bypass=-&strategy=auto
+mitm:
+  hostnames:
+    includes:
+    - api.revenuecat.com
+    - api.rc-backup.com
+    - rc.visionarytech.ltd
+    - revenue.cuto.app
+    - proxy.linearity.io
+    - subscriptions-api.superwall.com
+    - api.adapty.io
