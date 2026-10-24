@@ -12,6 +12,7 @@ scriptings:
         console.log("[PinToIsland] Body length: " + ($response.body ? $response.body.length : 0))
         console.log("[PinToIsland] Script done")
         $done({})
+      script: "console.log('[PinToIsland] Script started'); console.log('[PinToIsland] URL: ' + $request.url); console.log('[PinToIsland] Body type: ' + typeof $response.body); console.log('[PinToIsland] Body length: ' + ($response.body ? $response.body.length : 0)); console.log('[PinToIsland] Script done'); $done({})"
       body_required: true
       max_size: 2097152
       timeout: 30
