@@ -1,0 +1,25 @@
+name: PinToIsland IAP Bypass
+desc: |
+  上岛记 (PinToIsland) v10.0 永久会员
+  基于 REA 逆向分析，拦截 wulonglin.xyz 会员API响应
+  注入 tier=lifetime 永久会员状态
+  
+  拦截端点:
+  - /api/get_membership.php (会员状态查询)
+  - /api/sync_purchase.php (购买同步)
+  - /api/storekit_order_recovery.php (订单恢复)
+  - /api/storekit_migration_request.php (StoreKit迁移)
+  - /config/pricing.php (定价配置)
+version: "1.0.0"
+author: REA-Analysis
+mitm:
+  - wulonglin.xyz
+resources:
+  - pintoisland-membership.js
+scriptings:
+  - title: PinToIsland Membership Modifier
+    max_size: 2097152
+    timeout: 30
+    body: |
+      const script = $resource.read("pintoisland-membership.js");
+      $done({ body: script });
