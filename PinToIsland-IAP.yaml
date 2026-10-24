@@ -1,25 +1,49 @@
-name: PinToIsland IAP Bypass
-desc: |
-  上岛记 (PinToIsland) v10.0 永久会员
-  基于 REA 逆向分析，拦截 wulonglin.xyz 会员API响应
-  注入 tier=lifetime 永久会员状态
-  
-  拦截端点:
-  - /api/get_membership.php (会员状态查询)
-  - /api/sync_purchase.php (购买同步)
-  - /api/storekit_order_recovery.php (订单恢复)
-  - /api/storekit_migration_request.php (StoreKit迁移)
-  - /config/pricing.php (定价配置)
+上岛记 (PinToIsland) v10.0 永久会员
+  拦截 wulonglin.xyz 会员 API，注入 tier=lifetime
 version: "1.0.0"
-author: REA-Analysis
+author: REA
 mitm:
-  - wulonglin.xyz
-resources:
-  - pintoisland-membership.js
+  hostnames:
+    - wulonglin.xyz
 scriptings:
-  - title: PinToIsland Membership Modifier
-    max_size: 2097152
-    timeout: 30
-    body: |
-      const script = $resource.read("pintoisland-membership.js");
-      $done({ body: script });
+  - http_response:
+      name: "PinToIsland Membership"
+      match: "wulonglin\\.xyz"
+      timeout: 30
+      body: |
+        (function () {
+          var url = $request.url;
+          var status = $response.status;
+          var body = $response.body || "";
+
+          function tryJSON(s) { try { return JSON.parse(s); } catch(e) { return null; } }
+
+          function lifetime() {
+            return {
+              is_member: true,
+              is_lifetime: true,
+              tier: "lifetime",
+              expiration_date: null,
+              source: "storekit",
+              display_name: "永久会员"
+            };
+          }
+
+          function inject(j) {
+            if (!j || typeof j !== "object") return j;
+            var m = lifetime();
+            for (var k in m) if (m.hasOwnProperty(k)) j[k] = m[k];
+            delete j.expiration_date;
+            return j;
+          }
+
+          function process(j) {
+            if (!j || typeof j !== "object") return j;
+            if (j.data && typeof j.data === "object") j.data = inject(j.data);
+            else if (j.result && typeof j.result === "object") j.result = inject(j.result);
+            else j = inject(j);
+            if (j.code !== undefined) j.code = 0;
+            if (j.status !== undefined) j.status = "ok";
+            if (j.success !== undefined) j.success = true;
+            return j;
+          }
