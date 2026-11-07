@@ -18,6 +18,7 @@ jobs:
           clang -dynamiclib -arch arm64 \
             -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
             -framework Foundation \
+            -framework UIKit \
             -lobjc \
             -mios-version-min=15.0 \
             -o DAMAPro.dylib DAMAPro.m
