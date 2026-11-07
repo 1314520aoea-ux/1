@@ -4,9 +4,23 @@ description: |
   通过 RevenueCat API 拦截注入永久会员
 version: "1.0.0"
 author: REA
+compat_arguments:
+  Mock: https://reven.jsforbaby.workers.dev/reven
+  Bypass: '-'
+  Strategy: auto
+compat_arguments_desc: |-
+  Mock:
+  Reven 网关地址，一般无需修改。
+  Bypass:
+  跳过指定App(绕过解锁)。填 - 表示全部解锁。
+  Strategy:
+  注入策略。auto = lifetime 优先; lifetime_sub = lifetime 塞进 subscriptions; year = 选年订阅; month = 选月订阅。
 url_rewrites:
   - match: ^https:\/\/(api\.revenuecat\.com|api\.rc-backup\.com)\/(.+\/(?:receipts|subscribers\/[^/]+(?:\/attributes)?))$
     location: https://reven.jsforbaby.workers.dev/reven/$1/$2?bypass=-&strategy=auto
+    location: "{{{Mock}}}/$1/$2?bypass={{{Bypass}}}&strategy={{{Strategy}}}"
+  - match: ^https:\/\/(api\.revenuecat\.com|api\.rc-backup\.com)\/(.+\/offerings)$
+    location: "{{{Mock}}}/$1/$2?bypass={{{Bypass}}}&strategy={{{Strategy}}}"
 mitm:
   hostnames:
     includes:
