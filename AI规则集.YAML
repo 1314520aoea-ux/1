@@ -1,0 +1,129 @@
+domain_set:
+  # Ai general
+  - api.statsig.com
+  - browser-intake-datadoghq.com
+  - static.cloudflareinsights.com
+  # Anthropic/Claude
+  - cdn.usefathom.com
+  # Google AI
+  - ai.google.dev
+  - makersuite.google.com
+  # Muse AI
+  - production.museai.com
+  - connect.facebook.net
+  - meta-ohttp-config-prod.fastly-edge.com
+  - meta-ohttp-relay-prod.fastly-edge.com
+  # Microsoft Copilot
+  - api.msn.com
+  - assets.msn.com
+  - copilot.microsoft.com
+  - gateway.bingviz.microsoft.net
+  - gateway.bingviz.microsoftapp.net
+  - in.appcenter.ms
+  - location.microsoft.com
+  - odc.officeapps.live.com
+  - r.bing.com
+  - self.events.data.microsoft.com
+  - services.bingapis.com
+  - sydney.bing.com
+  - www.bing.com
+  # OpenAI/ChatGPT
+  - openaicom-api-bdcpf8c6d2e9atf6.z01.azurefd.net
+  - openaicomproductionae4b.blob.core.windows.net
+  - production-openaicom-storage.azureedge.net
+  # Perplexity
+  - pplx-res.cloudinary.com
+
+domain_suffix_set:
+  # Ai general
+  - algolia.net
+  - auth0.com
+  - cloudflare.com
+  - arkoselabs.com
+  - statsigapi.net
+  - featuregates.org
+  - identrust.com
+  - intercom.io
+  - intercomcdn.com
+  - launchdarkly.com
+  - segment.io
+  - amazonaws.com
+  - wp.com
+  - sentry.io
+  - stripe.com
+  # Anthropic/Claude
+  - anthropic.com
+  - claude.ai
+  - claude.com
+  - claudeusercontent.com
+  # Cursor
+  - cursor.sh
+  - cursor.com
+  - cursor-cdn.com
+  - cursorapi.com
+  - cursorvm.com
+  # Dify AI
+  - dify.ai
+  # Google AI
+  - gemini.google.com
+  - apis.google.com
+  - clients6.google.com
+  - clients4.google.com
+  - deepmind.com
+  - deepmind.google
+  - generativeai.google
+  - colab.google.com
+  - colab.research.google.com
+  - developerprofiles.google.com
+  - googleusercontent.com
+  - googleapis.com
+  - proactivebackend-pa.googleapis.com
+  # JetBrains AI
+  - grazie.ai
+  # Meta
+  - meta.ai
+  - meta.com
+  - atmeta.com
+  - llamameta.net
+  - llama.com
+  # Muse AI
+  - muse.ai
+  - facebook.com
+  - fbcdn.net
+  # NotebookLM
+  - notebooklm.google.com
+  - notebooklm.google
+  # Microsoft Copilot
+  - api.microsoftapp.net
+  - bing-shopping.microsoft-falcon.io
+  - edgeservices.bing.com
+  # Midjourney
+  - midjourney.com
+  # OpenAI/ChatGPT
+  - ai.com
+  - chatgpt.com
+  - livekit.cloud
+  - oaistatic.com
+  - oaiusercontent.com
+  - openai.com
+  - azureedge.net
+  - imgix.net
+  # Perplexity
+  - perplexity.ai
+  - pplx.ai
+  - perplexity.com
+  # Poe
+  - poe.com
+  - poecdn.net
+  # xAI/Grok
+  - x.ai
+  - grok.com
+  # Mistral AI
+  - mistral.ai
+  # Hugging Face
+  - huggingface.co
+  - hf.co
+  - hf.space
+  # Manus
+  - manus.im
+  - manuscdn.com
