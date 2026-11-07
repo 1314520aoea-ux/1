@@ -1,0 +1,14 @@
+name: DAMA Pro Unlock
+description: |
+  DAMA (tech.baye.placeholder) v26.10.3 Pro 解锁
+  通过 RevenueCat API 拦截注入永久会员
+version: "1.0.0"
+author: REA
+url_rewrites:
+  - match: ^https:\/\/(api\.revenuecat\.com|api\.rc-backup\.com)\/(.+\/(?:receipts|subscribers\/[^/]+(?:\/attributes)?))$
+    location: https://reven.jsforbaby.workers.dev/reven/$1/$2?bypass=-&strategy=auto
+mitm:
+  hostnames:
+    includes:
+      - api.revenuecat.com
+      - api.rc-backup.com
