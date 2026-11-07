@@ -1,0 +1,34 @@
+name: Build DAMAPro Dylib
+
+on:
+  push:
+    paths:
+      - 'DAMAPro.m'
+      - '.github/workflows/build-dylib.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile dylib
+        run: |
+          clang -dynamiclib -arch arm64 \
+            -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
+            -framework Foundation \
+            -lobjc \
+            -mios-version-min=15.0 \
+            -o DAMAPro.dylib DAMAPro.m
+          
+          echo "=== Build Result ==="
+          file DAMAPro.dylib
+          lipo -info DAMAPro.dylib
+          ls -la DAMAPro.dylib
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DAMAPro-dylib
+          path: DAMAPro.dylib
