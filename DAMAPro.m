@@ -1,6 +1,6 @@
-// DAMA Pro Unlock Dylib v2
+// DAMA Pro Unlock Dylib v3
 // Target: tech.baye.placeholder (DAMA)
-// Hooks RevenueCat entitlement checks + shows load alert for debugging
+// Deferred hooking: waits for RevenueCat classes to be loaded before swizzling.
 //
 // Compile: clang -dynamiclib -arch arm64 -isysroot $(xcrun --sdk iphoneos --show-sdk-path) -framework Foundation -framework UIKit -framework objc -mios-version-min=15.0 -o DAMAPro.dylib DAMAPro.m
 
@@ -8,8 +8,12 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 #import <objc/message.h>
+#import <dlfcn.h>
+#import <mach-o/dyld.h>
 
 #pragma mark - Helpers
+
+static BOOL g_hooksInstalled = NO;
 
 static void hookMethod(Class cls, SEL sel, IMP newImp) {
     if (!cls) return;
@@ -60,8 +64,7 @@ static id fakeEntitlementInfo(void) {
     static id fake = nil;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        Class c = objc_getClass("RCEntitlementInfo");
-        if (!c) c = NSClassFromString(@"RCEntitlementInfo");
+        Class c = NSClassFromString(@"RCEntitlementInfo");
         if (c) fake = [[c alloc] init];
     });
     return fake;
@@ -71,8 +74,7 @@ static id fakeEntitlementInfos(void) {
     static id fake = nil;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        Class c = objc_getClass("RCEntitlementInfos");
-        if (!c) c = NSClassFromString(@"RCEntitlementInfos");
+        Class c = NSClassFromString(@"RCEntitlementInfos");
         if (c) fake = [[c alloc] init];
     });
     return fake;
@@ -82,8 +84,7 @@ static id fakeCustomerInfo(void) {
     static id fake = nil;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        Class c = objc_getClass("RCCustomerInfo");
-        if (!c) c = NSClassFromString(@"RCCustomerInfo");
+        Class c = NSClassFromString(@"RCCustomerInfo");
         if (c) fake = [[c alloc] init];
     });
     return fake;
@@ -220,6 +221,111 @@ static BOOL hooked_UD_boolForKey(id self, SEL _cmd, NSString *key) {
     return orig_UD_boolForKey(self, _cmd, key);
 }
 
+#pragma mark - Hook installer
+
+static BOOL installHooks(void) {
+    if (g_hooksInstalled) return YES;
+
+    Class EI = NSClassFromString(@"RCEntitlementInfo");
+    Class EIs = NSClassFromString(@"RCEntitlementInfos");
+    Class CI = NSClassFromString(@"RCCustomerInfo");
+    Class Purchases = NSClassFromString(@"RCPurchases");
+    if (!Purchases) Purchases = NSClassFromString(@"Purchases");
+    Class Premium = NSClassFromString(@"_TtC11Placeholder7Premium");
+    if (!Premium) Premium = NSClassFromString(@"Placeholder.Premium");
+
+    if (!EI && !EIs && !CI && !Purchases && !Premium) {
+        return NO; // Nothing to hook yet
+    }
+
+    g_hooksInstalled = YES;
+    NSLog(@"[DAMAPro] ===== Installing hooks =====");
+
+    if (EI) {
+        hookMethod(EI, @selector(isActive), (IMP)hooked_EI_isActive);
+        hookMethod(EI, @selector(isActiveInAnyEnvironment), (IMP)hooked_EI_isActiveInAnyEnvironment);
+        hookMethod(EI, @selector(isActiveInCurrentEnvironment), (IMP)hooked_EI_isActiveInCurrentEnvironment);
+        hookMethod(EI, @selector(identifier), (IMP)hooked_EI_identifier);
+        hookMethod(EI, @selector(productIdentifier), (IMP)hooked_EI_productIdentifier);
+        hookMethod(EI, @selector(expirationDate), (IMP)hooked_EI_expirationDate);
+        hookMethod(EI, @selector(originalPurchaseDate), (IMP)hooked_EI_originalPurchaseDate);
+        hookMethod(EI, @selector(latestPurchaseDate), (IMP)hooked_EI_latestPurchaseDate);
+        hookMethod(EI, @selector(unsubscribeDetectedAt), (IMP)hooked_EI_unsubscribeDetectedAt);
+        hookMethod(EI, @selector(billingIssueDetectedAt), (IMP)hooked_EI_billingIssueDetectedAt);
+        hookMethod(EI, @selector(willRenew), (IMP)hooked_EI_willRenew);
+        hookMethod(EI, @selector(periodType), (IMP)hooked_EI_periodType);
+        hookMethod(EI, @selector(store), (IMP)hooked_EI_store);
+        hookMethod(EI, @selector(isSandbox), (IMP)hooked_EI_isSandbox);
+    }
+
+    if (EIs) {
+        hookMethod(EIs, @selector(activeEntitlements), (IMP)hooked_EIs_activeEntitlements);
+        hookMethod(EIs, @selector(all), (IMP)hooked_EIs_all);
+        hookMethod(EIs, @selector(active), (IMP)hooked_EIs_active);
+        hookMethod(EIs, @selector(objectForKeyedSubscript:), (IMP)hooked_EIs_objectForKeyedSubscript);
+    }
+
+    if (CI) {
+        hookMethod(CI, @selector(entitlements), (IMP)hooked_CI_entitlements);
+        hookMethod(CI, @selector(allPurchasedProductIdentifiers), (IMP)hooked_CI_allPurchasedProductIdentifiers);
+        hookMethod(CI, @selector(nonSubscriptionTransactions), (IMP)hooked_CI_nonSubscriptionTransactions);
+        hookMethod(CI, @selector(firstSeen), (IMP)hooked_CI_firstSeen);
+        hookMethod(CI, @selector(originalPurchaseDate), (IMP)hooked_CI_originalPurchaseDate);
+        hookMethod(CI, @selector(originalApplicationVersion), (IMP)hooked_CI_originalApplicationVersion);
+        hookMethod(CI, @selector(managementURL), (IMP)hooked_CI_managementURL);
+    }
+
+    if (Purchases) {
+        hookMethod(Purchases, @selector(customerInfo), (IMP)hooked_Purchases_customerInfo);
+        hookMethod(Purchases, @selector(customerInfoWithCompletion:), (IMP)hooked_Purchases_customerInfoWithCompletion);
+        hookMethod(Purchases, @selector(getCustomerInfoWithCompletion:), (IMP)hooked_Purchases_getCustomerInfoWithCompletion);
+        hookMethod(Purchases, @selector(restorePurchasesWithCompletion:), (IMP)hooked_Purchases_restorePurchasesWithCompletion);
+        hookMethod(Purchases, @selector(purchaseProduct:withCompletion:), (IMP)hooked_Purchases_purchaseProductWithCompletion);
+        NSLog(@"[DAMAPro] Found Purchases class: %s", class_getName(Purchases));
+    }
+
+    if (Premium) {
+        hookMethod(Premium, @selector(isPremium), (IMP)hooked_isPremium);
+    }
+
+    // NSUserDefaults hook can be installed early since Foundation is always loaded
+    Class UD = objc_getClass("NSUserDefaults");
+    Method m = class_getInstanceMethod(UD, @selector(boolForKey:));
+    if (m && !orig_UD_boolForKey) {
+        orig_UD_boolForKey = (BOOL (*)(id, SEL, NSString *))method_getImplementation(m);
+        method_setImplementation(m, (IMP)hooked_UD_boolForKey);
+        NSLog(@"[DAMAPro] Hooked NSUserDefaults -boolForKey:");
+    }
+
+    NSLog(@"[DAMAPro] ===== hooks installed =====");
+    return YES;
+}
+
+static void imageAddedCallback(const struct mach_header *mh, intptr_t vmaddr_slide) {
+    // Try installing hooks whenever a new image is loaded
+    installHooks();
+}
+
+static void scheduleRetries(void) {
+    // Keep trying for 10 seconds in case dyld callbacks miss anything
+    static int attempts = 0;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        attempts++;
+        if (!g_hooksInstalled && attempts < 10) {
+            installHooks();
+            scheduleRetries();
+        } else if (g_hooksInstalled) {
+            NSMutableString *info = [NSMutableString stringWithString:@"Hooks installed:\n"];
+            if (NSClassFromString(@"RCEntitlementInfo")) [info appendString:@"- RCEntitlementInfo\n"];
+            if (NSClassFromString(@"RCEntitlementInfos")) [info appendString:@"- RCEntitlementInfos\n"];
+            if (NSClassFromString(@"RCCustomerInfo")) [info appendString:@"- RCCustomerInfo\n"];
+            if (NSClassFromString(@"RCPurchases") || NSClassFromString(@"Purchases")) [info appendString:@"- RCPurchases\n"];
+            if (NSClassFromString(@"_TtC11Placeholder7Premium")) [info appendString:@"- Placeholder.Premium\n"];
+            showLoadAlert(info);
+        }
+    });
+}
+
 #pragma mark - Constructor
 
 __attribute__((constructor))
@@ -227,94 +333,13 @@ static void init() {
     NSLog(@"[DAMAPro] ===== DAMA Pro Unlock dylib loaded =====");
 
     @autoreleasepool {
-        Class EI = objc_getClass("RCEntitlementInfo");
-        if (!EI) EI = NSClassFromString(@"RCEntitlementInfo");
-        if (EI) {
-            hookMethod(EI, @selector(isActive), (IMP)hooked_EI_isActive);
-            hookMethod(EI, @selector(isActiveInAnyEnvironment), (IMP)hooked_EI_isActiveInAnyEnvironment);
-            hookMethod(EI, @selector(isActiveInCurrentEnvironment), (IMP)hooked_EI_isActiveInCurrentEnvironment);
-            hookMethod(EI, @selector(identifier), (IMP)hooked_EI_identifier);
-            hookMethod(EI, @selector(productIdentifier), (IMP)hooked_EI_productIdentifier);
-            hookMethod(EI, @selector(expirationDate), (IMP)hooked_EI_expirationDate);
-            hookMethod(EI, @selector(originalPurchaseDate), (IMP)hooked_EI_originalPurchaseDate);
-            hookMethod(EI, @selector(latestPurchaseDate), (IMP)hooked_EI_latestPurchaseDate);
-            hookMethod(EI, @selector(unsubscribeDetectedAt), (IMP)hooked_EI_unsubscribeDetectedAt);
-            hookMethod(EI, @selector(billingIssueDetectedAt), (IMP)hooked_EI_billingIssueDetectedAt);
-            hookMethod(EI, @selector(willRenew), (IMP)hooked_EI_willRenew);
-            hookMethod(EI, @selector(periodType), (IMP)hooked_EI_periodType);
-            hookMethod(EI, @selector(store), (IMP)hooked_EI_store);
-            hookMethod(EI, @selector(isSandbox), (IMP)hooked_EI_isSandbox);
-        } else {
-            NSLog(@"[DAMAPro] RCEntitlementInfo class not found");
-        }
+        // Install what we can immediately (NSUserDefaults etc.)
+        installHooks();
 
-        Class EIs = objc_getClass("RCEntitlementInfos");
-        if (!EIs) EIs = NSClassFromString(@"RCEntitlementInfos");
-        if (EIs) {
-            hookMethod(EIs, @selector(activeEntitlements), (IMP)hooked_EIs_activeEntitlements);
-            hookMethod(EIs, @selector(all), (IMP)hooked_EIs_all);
-            hookMethod(EIs, @selector(active), (IMP)hooked_EIs_active);
-            hookMethod(EIs, @selector(objectForKeyedSubscript:), (IMP)hooked_EIs_objectForKeyedSubscript);
-        } else {
-            NSLog(@"[DAMAPro] RCEntitlementInfos class not found");
-        }
+        // Re-try when dynamic images are loaded
+        _dyld_register_func_for_add_image(imageAddedCallback);
 
-        Class CI = objc_getClass("RCCustomerInfo");
-        if (!CI) CI = NSClassFromString(@"RCCustomerInfo");
-        if (CI) {
-            hookMethod(CI, @selector(entitlements), (IMP)hooked_CI_entitlements);
-            hookMethod(CI, @selector(allPurchasedProductIdentifiers), (IMP)hooked_CI_allPurchasedProductIdentifiers);
-            hookMethod(CI, @selector(nonSubscriptionTransactions), (IMP)hooked_CI_nonSubscriptionTransactions);
-            hookMethod(CI, @selector(firstSeen), (IMP)hooked_CI_firstSeen);
-            hookMethod(CI, @selector(originalPurchaseDate), (IMP)hooked_CI_originalPurchaseDate);
-            hookMethod(CI, @selector(originalApplicationVersion), (IMP)hooked_CI_originalApplicationVersion);
-            hookMethod(CI, @selector(managementURL), (IMP)hooked_CI_managementURL);
-        } else {
-            NSLog(@"[DAMAPro] RCCustomerInfo class not found");
-        }
-
-        Class Purchases = objc_getClass("RCPurchases");
-        if (!Purchases) Purchases = objc_getClass("Purchases");
-        if (!Purchases) Purchases = NSClassFromString(@"RCPurchases");
-        if (!Purchases) Purchases = NSClassFromString(@"Purchases");
-        if (Purchases) {
-            hookMethod(Purchases, @selector(customerInfo), (IMP)hooked_Purchases_customerInfo);
-            hookMethod(Purchases, @selector(customerInfoWithCompletion:), (IMP)hooked_Purchases_customerInfoWithCompletion);
-            hookMethod(Purchases, @selector(getCustomerInfoWithCompletion:), (IMP)hooked_Purchases_getCustomerInfoWithCompletion);
-            hookMethod(Purchases, @selector(restorePurchasesWithCompletion:), (IMP)hooked_Purchases_restorePurchasesWithCompletion);
-            hookMethod(Purchases, @selector(purchaseProduct:withCompletion:), (IMP)hooked_Purchases_purchaseProductWithCompletion);
-            NSLog(@"[DAMAPro] Found Purchases class: %s", class_getName(Purchases));
-        } else {
-            NSLog(@"[DAMAPro] RCPurchases/Purchases class not found");
-        }
-
-        Class Premium = objc_getClass("_TtC11Placeholder7Premium");
-        if (!Premium) Premium = NSClassFromString(@"_TtC11Placeholder7Premium");
-        if (!Premium) Premium = NSClassFromString(@"Placeholder.Premium");
-        if (Premium) {
-            hookMethod(Premium, @selector(isPremium), (IMP)hooked_isPremium);
-        } else {
-            NSLog(@"[DAMAPro] Placeholder.Premium class not found");
-        }
-
-        Class UD = objc_getClass("NSUserDefaults");
-        Method m = class_getInstanceMethod(UD, @selector(boolForKey:));
-        if (m) {
-            orig_UD_boolForKey = (BOOL (*)(id, SEL, NSString *))method_getImplementation(m);
-            method_setImplementation(m, (IMP)hooked_UD_boolForKey);
-            NSLog(@"[DAMAPro] Hooked NSUserDefaults -boolForKey:");
-        }
-
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            NSMutableString *info = [NSMutableString stringWithString:@"Hooks installed:\n"];
-            if (EI) [info appendString:@"- RCEntitlementInfo\n"];
-            if (EIs) [info appendString:@"- RCEntitlementInfos\n"];
-            if (CI) [info appendString:@"- RCCustomerInfo\n"];
-            if (Purchases) [info appendString:@"- RCPurchases\n"];
-            if (Premium) [info appendString:@"- Placeholder.Premium\n"];
-            showLoadAlert(info);
-        });
-
-        NSLog(@"[DAMAPro] ===== init done =====");
+        // Also retry periodically after UI is up
+        scheduleRetries();
     }
 }
