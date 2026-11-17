@@ -13,15 +13,29 @@
 // NSError instead of an uncatchable ObjC exception, so the app can fall back to
 // its "iCloud unavailable" UI state.
 //
+// Deliberately Foundation-only: no CloudKit headers, so the dylib compiles
+// against any iOS SDK version. All CloudKit types are handled as `id`.
+//
 // Build: clang -dynamiclib -arch arm64 \
 //   -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
 //   -framework Foundation -framework CloudKit -lobjc \
 //   -mios-version-min=15.0 -o LibraCloudKitFix.dylib LibraCloudKitFix.m
 
 #import <Foundation/Foundation.h>
-#import <CloudKit/CloudKit.h>
 #import <objc/runtime.h>
 #import <mach-o/dyld.h>
+
+// CloudKit enum values (stable ABI), hardcoded to avoid SDK dependencies.
+enum {
+    LibraCKScopePublic  = 1,
+    LibraCKScopePrivate = 2,
+    LibraCKScopeShared  = 3,
+};
+
+enum {
+    LibraCKAccountStatusNoAccount = 3,
+    LibraCKPermissionDenied       = 2,
+};
 
 static NSError *LibraCKUnavailable(void) {
     return [NSError errorWithDomain:@"CKErrorDomain"
@@ -44,72 +58,72 @@ static void LibraCallBlock3(id block, id a, id b2, NSError *e) {
 #pragma mark - Fake database
 
 @interface LibraFakeDatabase : NSObject
-@property (nonatomic, assign) CKDatabaseScope scope;
+@property (nonatomic, assign) NSInteger scope;
 @property (nonatomic, weak) id container;
 @end
 
 @implementation LibraFakeDatabase
 
-- (CKDatabaseScope)databaseScope { return _scope; }
+- (NSInteger)databaseScope { return _scope; }
 
-- (void)fetchAllRecordZonesWithCompletionHandler:(void (^)(NSArray<CKRecordZone *> *zones, NSError *error))h {
+- (void)fetchAllRecordZonesWithCompletionHandler:(void (^)(id zones, NSError *error))h {
     LibraCallBlock2(h, nil, LibraCKUnavailable());
 }
 
-- (void)fetchRecordZoneWithID:(CKRecordZoneID *)zoneID completionHandler:(void (^)(CKRecordZone *zone, NSError *error))h {
+- (void)fetchRecordZoneWithID:(id)zoneID completionHandler:(void (^)(id zone, NSError *error))h {
     LibraCallBlock2(h, nil, LibraCKUnavailable());
 }
 
-- (void)saveRecordZone:(CKRecordZone *)zone completionHandler:(void (^)(CKRecordZone *zone, NSError *error))h {
+- (void)saveRecordZone:(id)zone completionHandler:(void (^)(id zone, NSError *error))h {
     LibraCallBlock2(h, nil, LibraCKUnavailable());
 }
 
-- (void)deleteRecordZoneWithID:(CKRecordZoneID *)zoneID completionHandler:(void (^)(CKRecordZoneID *zoneID, NSError *error))h {
+- (void)deleteRecordZoneWithID:(id)zoneID completionHandler:(void (^)(id zoneID, NSError *error))h {
     LibraCallBlock2(h, nil, LibraCKUnavailable());
 }
 
-- (void)fetchRecordWithID:(CKRecordID *)recordID completionHandler:(void (^)(CKRecord *record, NSError *error))h {
+- (void)fetchRecordWithID:(id)recordID completionHandler:(void (^)(id record, NSError *error))h {
     LibraCallBlock2(h, nil, LibraCKUnavailable());
 }
 
-- (void)fetchRecordsWithIDs:(NSArray<CKRecordID *> *)recordIDs completionHandler:(void (^)(NSDictionary<CKRecordID *, CKRecord *> *records, NSError *error))h {
+- (void)fetchRecordsWithIDs:(id)recordIDs completionHandler:(void (^)(id records, NSError *error))h {
     LibraCallBlock2(h, @{}, LibraCKUnavailable());
 }
 
-- (void)fetchRecordsWithIDs:(NSArray<CKRecordID *> *)recordIDs desiredKeys:(NSArray<NSString *> *)desiredKeys completionHandler:(void (^)(NSDictionary<CKRecordID *, CKRecord *> *records, NSError *error))h {
+- (void)fetchRecordsWithIDs:(id)recordIDs desiredKeys:(id)desiredKeys completionHandler:(void (^)(id records, NSError *error))h {
     LibraCallBlock2(h, @{}, LibraCKUnavailable());
 }
 
-- (void)saveRecord:(CKRecord *)record completionHandler:(void (^)(CKRecord *record, NSError *error))h {
+- (void)saveRecord:(id)record completionHandler:(void (^)(id record, NSError *error))h {
     LibraCallBlock2(h, nil, LibraCKUnavailable());
 }
 
-- (void)deleteRecordWithID:(CKRecordID *)recordID completionHandler:(void (^)(CKRecordID *recordID, NSError *error))h {
+- (void)deleteRecordWithID:(id)recordID completionHandler:(void (^)(id recordID, NSError *error))h {
     LibraCallBlock2(h, nil, LibraCKUnavailable());
 }
 
-- (void)performQuery:(CKQuery *)query inZoneWithID:(CKRecordZoneID *)zoneID completionHandler:(void (^)(NSArray<CKRecord *> *results, NSError *error))h {
+- (void)performQuery:(id)query inZoneWithID:(id)zoneID completionHandler:(void (^)(id results, NSError *error))h {
     LibraCallBlock2(h, nil, LibraCKUnavailable());
 }
 
-- (void)fetchAllSubscriptionsWithCompletionHandler:(void (^)(NSArray<CKSubscription *> *subscriptions, NSError *error))h {
+- (void)fetchAllSubscriptionsWithCompletionHandler:(void (^)(id subscriptions, NSError *error))h {
     LibraCallBlock2(h, nil, LibraCKUnavailable());
 }
 
-- (void)fetchSubscriptionWithID:(NSString *)subscriptionID completionHandler:(void (^)(CKSubscription *subscription, NSError *error))h {
+- (void)fetchSubscriptionWithID:(id)subscriptionID completionHandler:(void (^)(id subscription, NSError *error))h {
     LibraCallBlock2(h, nil, LibraCKUnavailable());
 }
 
-- (void)saveSubscription:(CKSubscription *)subscription completionHandler:(void (^)(CKSubscription *subscription, NSError *error))h {
+- (void)saveSubscription:(id)subscription completionHandler:(void (^)(id subscription, NSError *error))h {
     LibraCallBlock2(h, nil, LibraCKUnavailable());
 }
 
-- (void)deleteSubscriptionWithID:(NSString *)subscriptionID completionHandler:(void (^)(NSString *subscriptionID, NSError *error))h {
+- (void)deleteSubscriptionWithID:(id)subscriptionID completionHandler:(void (^)(id subscriptionID, NSError *error))h {
     LibraCallBlock2(h, nil, LibraCKUnavailable());
 }
 
 // CKSyncEngine / Swift overlay route batches through CKOperation.
-- (void)addOperation:(NSOperation *)operation {
+- (void)addOperation:(id)operation {
     NSString *cls = NSStringFromClass([operation class]);
     NSError *err = LibraCKUnavailable();
 
@@ -118,9 +132,9 @@ static void LibraCallBlock3(id block, id a, id b2, NSError *e) {
     } else if ([cls isEqualToString:@"CKFetchRecordsOperation"]) {
         LibraCallBlock2([(id)operation valueForKey:@"fetchRecordsCompletionBlock"], @{}, err);
     } else if ([cls isEqualToString:@"CKFetchRecordZonesOperation"]) {
-        if ([(id)operation respondsToSelector:NSSelectorFromString(@"fetchAllRecordZonesCompletionBlock")]) {
+        if ([operation respondsToSelector:NSSelectorFromString(@"fetchAllRecordZonesCompletionBlock")]) {
             LibraCallBlock2([(id)operation valueForKey:@"fetchAllRecordZonesCompletionBlock"], @[], err);
-        } else if ([(id)operation respondsToSelector:NSSelectorFromString(@"fetchRecordZonesCompletionBlock")]) {
+        } else if ([operation respondsToSelector:NSSelectorFromString(@"fetchRecordZonesCompletionBlock")]) {
             LibraCallBlock2([(id)operation valueForKey:@"fetchRecordZonesCompletionBlock"], @{}, err);
         }
     } else if ([cls isEqualToString:@"CKFetchRecordZoneChangesOperation"]) {
@@ -165,48 +179,54 @@ static void LibraCallBlock3(id block, id a, id b2, NSError *e) {
         shared = [[LibraFakeContainer alloc] init];
         shared.containerIdentifier = identifier ?: @"iCloud.com.sevenzx.Libra";
         shared.privateDB = [[LibraFakeDatabase alloc] init];
-        shared.privateDB.scope = CKDatabaseScopePrivate;
+        shared.privateDB.scope = LibraCKScopePrivate;
         shared.privateDB.container = shared;
         shared.publicDB = [[LibraFakeDatabase alloc] init];
-        shared.publicDB.scope = CKDatabaseScopePublic;
+        shared.publicDB.scope = LibraCKScopePublic;
         shared.publicDB.container = shared;
         shared.sharedDB = [[LibraFakeDatabase alloc] init];
-        shared.sharedDB.scope = CKDatabaseScopeShared;
+        shared.sharedDB.scope = LibraCKScopeShared;
         shared.sharedDB.container = shared;
     });
     return shared;
 }
 
-- (CKDatabase *)privateCloudDatabase { return (CKDatabase *)_privateDB; }
-- (CKDatabase *)publicCloudDatabase { return (CKDatabase *)_publicDB; }
-- (CKDatabase *)sharedCloudDatabase { return (CKDatabase *)_sharedDB; }
+- (id)privateCloudDatabase { return _privateDB; }
+- (id)publicCloudDatabase { return _publicDB; }
+- (id)sharedCloudDatabase { return _sharedDB; }
 
-- (CKDatabase *)databaseWithDatabaseScope:(CKDatabaseScope)scope {
+- (id)databaseWithDatabaseScope:(NSInteger)scope {
     switch (scope) {
-        case CKDatabaseScopePublic: return (CKDatabase *)_publicDB;
-        case CKDatabaseScopeShared: return (CKDatabase *)_sharedDB;
-        case CKDatabaseScopePrivate:
-        default: return (CKDatabase *)_privateDB;
+        case LibraCKScopePublic: return _publicDB;
+        case LibraCKScopeShared: return _sharedDB;
+        case LibraCKScopePrivate:
+        default: return _privateDB;
     }
 }
 
-- (void)accountStatusWithCompletionHandler:(void (^)(CKAccountStatus status, NSError *error))h {
-    LibraCallBlock2(h, (id)(NSInteger)CKAccountStatusNoAccount, LibraCKUnavailable());
+- (void)accountStatusWithCompletionHandler:(void (^)(NSInteger status, NSError *error))h {
+    if (!h) return;
+    void (^b)(NSInteger, NSError *) = h;
+    b(LibraCKAccountStatusNoAccount, LibraCKUnavailable());
 }
 
-- (void)fetchUserRecordIDWithCompletionHandler:(void (^)(CKRecordID *recordID, NSError *error))h {
+- (void)fetchUserRecordIDWithCompletionHandler:(void (^)(id recordID, NSError *error))h {
     LibraCallBlock2(h, nil, LibraCKUnavailable());
 }
 
-- (void)requestApplicationPermission:(CKApplicationPermissions)permission completionHandler:(void (^)(CKApplicationPermissionStatus status, NSError *error))h {
-    LibraCallBlock2(h, (id)(NSInteger)CKApplicationPermissionStatusDenied, LibraCKUnavailable());
+- (void)requestApplicationPermission:(NSInteger)permission completionHandler:(void (^)(NSInteger status, NSError *error))h {
+    if (!h) return;
+    void (^b)(NSInteger, NSError *) = h;
+    b(LibraCKPermissionDenied, LibraCKUnavailable());
 }
 
-- (void)statusForApplicationPermission:(CKApplicationPermissions)permission completionHandler:(void (^)(CKApplicationPermissionStatus status, NSError *error))h {
-    LibraCallBlock2(h, (id)(NSInteger)CKApplicationPermissionStatusDenied, LibraCKUnavailable());
+- (void)statusForApplicationPermission:(NSInteger)permission completionHandler:(void (^)(NSInteger status, NSError *error))h {
+    if (!h) return;
+    void (^b)(NSInteger, NSError *) = h;
+    b(LibraCKPermissionDenied, LibraCKUnavailable());
 }
 
-- (void)fetchShareMetadataWithURL:(NSURL *)url completionHandler:(void (^)(id metadata, NSError *error))h {
+- (void)fetchShareMetadataWithURL:(id)url completionHandler:(void (^)(id metadata, NSError *error))h {
     LibraCallBlock2(h, nil, LibraCKUnavailable());
 }
 
@@ -214,24 +234,24 @@ static void LibraCallBlock3(id block, id a, id b2, NSError *e) {
     LibraCallBlock2(h, nil, LibraCKUnavailable());
 }
 
-- (void)discoverAllIdentitiesWithCompletionHandler:(void (^)(NSArray *identities, NSError *error))h {
+- (void)discoverAllIdentitiesWithCompletionHandler:(void (^)(id identities, NSError *error))h {
     LibraCallBlock2(h, nil, LibraCKUnavailable());
 }
 
-- (void)discoverUserIdentityWithEmailAddress:(NSString *)email completionHandler:(void (^)(id identity, NSError *error))h {
+- (void)discoverUserIdentityWithEmailAddress:(id)email completionHandler:(void (^)(id identity, NSError *error))h {
     LibraCallBlock2(h, nil, LibraCKUnavailable());
 }
 
-- (void)discoverUserIdentityWithPhoneNumber:(NSString *)phone completionHandler:(void (^)(id identity, NSError *error))h {
+- (void)discoverUserIdentityWithPhoneNumber:(id)phone completionHandler:(void (^)(id identity, NSError *error))h {
     LibraCallBlock2(h, nil, LibraCKUnavailable());
 }
 
-- (void)discoverUserIdentityWithUserRecordID:(CKRecordID *)userRecordID completionHandler:(void (^)(id identity, NSError *error))h {
+- (void)discoverUserIdentityWithUserRecordID:(id)userRecordID completionHandler:(void (^)(id identity, NSError *error))h {
     LibraCallBlock2(h, nil, LibraCKUnavailable());
 }
 
-- (void)addOperation:(NSOperation *)operation {
-    [(LibraFakeDatabase *)_privateDB addOperation:operation];
+- (void)addOperation:(id)operation {
+    [_privateDB addOperation:operation];
 }
 
 - (void)doesNotRecognizeSelector:(SEL)aSelector {
@@ -249,16 +269,16 @@ static id LibraHookedContainerWithIdentifier(id self, SEL _cmd, NSString *identi
     return [LibraFakeContainer sharedWithIdentifier:identifier];
 }
 
+static id LibraHookedContainerWithIdentifierEnv(id self, SEL _cmd, NSString *identifier, id env) {
+    NSLog(@"[LibraCKFix] CKContainer(identifier: %@, env: %@) -> inert container", identifier, env);
+    return [LibraFakeContainer sharedWithIdentifier:identifier];
+}
+
 static id LibraHookedDefaultContainer(id self, SEL _cmd) {
     NSString *bundleID = [[NSBundle mainBundle] bundleIdentifier];
     NSLog(@"[LibraCKFix] CKContainer.default -> inert container");
     return [LibraFakeContainer sharedWithIdentifier:
             [NSString stringWithFormat:@"iCloud.%@", bundleID ?: @"com.sevenzx.Libra"]];
-}
-
-static id LibraHookedContainerWithIdentifierEnv(id self, SEL _cmd, NSString *identifier, id env) {
-    NSLog(@"[LibraCKFix] CKContainer(identifier: %@, env: %@) -> inert container", identifier, env);
-    return [LibraFakeContainer sharedWithIdentifier:identifier];
 }
 
 static void LibraInstallHooks(void) {
@@ -268,7 +288,7 @@ static void LibraInstallHooks(void) {
 
     g_installed = YES;
 
-    Method m = class_getClassMethod(CK, @selector(containerWithIdentifier:));
+    Method m = class_getClassMethod(CK, NSSelectorFromString(@"containerWithIdentifier:"));
     if (m) {
         method_setImplementation(m, (IMP)LibraHookedContainerWithIdentifier);
         NSLog(@"[LibraCKFix] swizzled +[CKContainer containerWithIdentifier:]");
