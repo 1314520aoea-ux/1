@@ -59,7 +59,7 @@ static void LibraCallBlock3(id block, id a, id b2, NSError *e) {
 
 @interface LibraFakeDatabase : NSObject
 @property (nonatomic, assign) NSInteger scope;
-@property (nonatomic, weak) id container;
+@property (nonatomic, unsafe_unretained) id container;
 @end
 
 @implementation LibraFakeDatabase
@@ -165,9 +165,9 @@ static void LibraCallBlock3(id block, id a, id b2, NSError *e) {
 
 @interface LibraFakeContainer : NSObject
 @property (nonatomic, copy) NSString *containerIdentifier;
-@property (nonatomic, strong) LibraFakeDatabase *privateDB;
-@property (nonatomic, strong) LibraFakeDatabase *publicDB;
-@property (nonatomic, strong) LibraFakeDatabase *sharedDB;
+@property (nonatomic, retain) LibraFakeDatabase *privateDB;
+@property (nonatomic, retain) LibraFakeDatabase *publicDB;
+@property (nonatomic, retain) LibraFakeDatabase *sharedDB;
 @end
 
 @implementation LibraFakeContainer
