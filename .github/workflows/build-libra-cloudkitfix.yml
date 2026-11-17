@@ -1,0 +1,35 @@
+name: Build Libra CloudKit Fix
+
+on:
+  push:
+    paths:
+      - 'LibraCloudKitFix.m'
+      - '.github/workflows/build-libra-cloudkitfix.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile dylib
+        run: |
+          clang -dynamiclib -arch arm64 \
+            -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
+            -framework Foundation \
+            -framework CloudKit \
+            -lobjc \
+            -mios-version-min=15.0 \
+            -o LibraCloudKitFix.dylib LibraCloudKitFix.m
+
+          echo "=== Build Result ==="
+          file LibraCloudKitFix.dylib
+          lipo -info LibraCloudKitFix.dylib
+          ls -la LibraCloudKitFix.dylib
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LibraCloudKitFix-dylib
+          path: LibraCloudKitFix.dylib
