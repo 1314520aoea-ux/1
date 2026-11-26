@@ -157,7 +157,7 @@ async function loadPrediction(ctx, provinceCode) {
     timeout: 10000
   });
   const html = await resp.text();
-  const dm = html.match(/下次油价(\d{1,2})月(\d{1,2})日24时调整/);
+  const dm = html.match(/下次油价[^\d]{0,12}(\d{1,2})月(\d{1,2})日\s*24\s*时/) || html.match(/(\d{1,2})月(\d{1,2})日\s*24\s*时\s*(?:起|调整|调价)/);
   const nextMD = dm ? [Number(dm[1]), Number(dm[2])] : null;
 
   // 1. 搁浅或不作调整
@@ -227,7 +227,7 @@ function extractItems(current, history, province, areaIndex, targetKeys, offsetS
 const CALENDAR = {
   2026: [[1,12],[1,23],[2,9],[2,23],[3,9],[3,23],[4,7],[4,21],[5,8],[5,22],
          [6,5],[6,19],[7,3],[7,17],[7,31],[8,14],[8,28],[9,11],[9,24],
-         [10,14],[10,28],[11,11],[11,25],[12,9],[12,23]],
+         [10,15],[10,29],[11,12],[11,26],[12,10],[12,24]],
 };
 
 function adjustWindow(now, override) {
